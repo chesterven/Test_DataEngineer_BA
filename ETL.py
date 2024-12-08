@@ -2,15 +2,26 @@ import pandas as pd
 import re
 from datetime import datetime
 import sqlite3
+import logging
 
+
+# Configurar el logger 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Inicializamos el dataframe con el archivo fuente
+
+#Log
+logging.info("Leyendo archivo Excel")
 df = pd.read_excel('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/fuente.xlsx') 
 
 
 
 #Creamos metodo para limpiar los datos del nombre y DUI. 
 def stage_limpieza(texto):
+
+    #Log
+    logging.info("Limpiando texto")
+
     # Eliminar caracteres especiales y números
     texto_limpio = re.sub(r'[^A-Za-zÁÉÍÓÚáéíóú\s]', '', texto)
     
@@ -22,6 +33,10 @@ def stage_limpieza(texto):
 
 #Creamos metodo para la clasificacion del nombre.
 def clasificar_nombre_cliente(nombre_completo):
+
+    #Log
+    logging.info("Clasificando nombre")
+
     # Invocamos el metodo de limpieza previo a la trasnformacion.
     nombre_clean = stage_limpieza(nombre_completo)
 
@@ -66,16 +81,24 @@ df[['Nombre1', 'Nombre2', 'Nombre3', 'Apellido1', 'Apellido2', 'Casada']] = df['
 df = df.iloc[:, 1:]
 
 #Nos coenctamos a la base de datos ClientesListasBA que fue proporcionada para la prueba
+
+#log
+logging.info("Conectando a la base de datos SQLite")
+
 conn = sqlite3.connect('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/ClientesListasBA.db')
 
 #Ejecutamos consultas sin filtros para obtener todos los registros de las tablas internas.
+
+#log
+logging.info("Leyendo las tablas clientes y lista_control")
 df_sqlite_clientes = pd.read_sql_query('SELECT * FROM clientes', conn)
 df_sqlite_control = pd.read_sql_query('SELECT * FROM lista_control', conn)
 
 #Parametrizando el campo documento a tipo texto previo al cruce
 df['documento'] = df['documento'].astype(str)
 
-
+logging.info("Inicia busqueda de documento en tablas internas")
+df['Clasificación'] = 'No se encontró en BD'
 #Hacemos la busqueda del campo "documento" de la fuente en las dos tablas y clasificamos el nuevo campo Clasificacion
 df.loc[df['documento'].isin(df_sqlite_clientes['documento']), 'Clasificación'] = 'Cartera de Clientes' 
 
@@ -85,7 +108,9 @@ df.loc[df['documento'].isin(df_sqlite_control['documento']), 'Clasificación'] =
 #Parametrizamos la fecha y hora en formato YYYYMMDD_HHMISS para customizar el nombre del archivo generado en base a una fecha.
 fecha_hora_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
 
+logging.info(f"Se generaron {df.count()} registros en total")
 
+logging.info(f"Guardando archivo Excel:resultado_{fecha_hora_actual}")
 
 #Generamos nuevo archivo 
 df.to_excel(f'C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/resultado_{fecha_hora_actual}.xlsx', index=False)
