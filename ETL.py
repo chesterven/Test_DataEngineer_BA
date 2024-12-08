@@ -8,12 +8,12 @@ import logging
 # Configurar el logger 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Inicializamos el dataframe con el archivo fuente
-
-#Log
-logging.info("Leyendo archivo Excel")
-df = pd.read_excel('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/fuente.xlsx') 
-
+# Función para insertar registro en BITACORA_PROCESOS 
+def registrar_proceso(conn, id_proceso, nombre_proceso, estado): 
+    fecha_ejecucion = datetime.now().strftime('%Y-%m-%d %H:%M:%S') 
+    cursor = conn.cursor() 
+    cursor.execute("INSERT INTO BITACORA_PROCESOS (ID_PROCESO, NOMBRE_PROCESO, FECHA_EJECUCION, ESTADO) VALUES (?, ?, ?, ?)", (id_proceso, nombre_proceso, fecha_ejecucion, estado)) 
+    conn.commit()
 
 
 #Creamos metodo para limpiar los datos del nombre y DUI. 
@@ -74,18 +74,32 @@ def clasificar_nombre_cliente(nombre_completo):
     return pd.Series([nombre1, nombre2, nombre3, apellido1, apellido2, casada])
 
 
+# Inicializamos el dataframe con el archivo fuente
+
+#log
+logging.info("Conectando a la base de datos SQLite")
+
+conn = sqlite3.connect('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/ClientesListasBA.db')
+
+
+#Bitacora BD
+registrar_proceso(conn, 500001, 'Inicio del Proceso Carga Clientes', 'Iniciado')
+
+#Log
+logging.info("Leyendo archivo Excel")
+df = pd.read_excel('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/fuente.xlsx') 
+
 # Invocacion de funcion de clasificacion de nombres
 df[['Nombre1', 'Nombre2', 'Nombre3', 'Apellido1', 'Apellido2', 'Casada']] = df['Nombre'].apply(clasificar_nombre_cliente)
 
 #Eliminamos la primera columna
 df = df.iloc[:, 1:]
 
+#Bitacora BD
+registrar_proceso(conn, 500001, 'Finaliza del Proceso Trasnformacion', 'Finalizado')
+
+
 #Nos coenctamos a la base de datos ClientesListasBA que fue proporcionada para la prueba
-
-#log
-logging.info("Conectando a la base de datos SQLite")
-
-conn = sqlite3.connect('C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/ClientesListasBA.db')
 
 #Ejecutamos consultas sin filtros para obtener todos los registros de las tablas internas.
 
@@ -105,6 +119,8 @@ df.loc[df['documento'].isin(df_sqlite_clientes['documento']), 'Clasificación'] 
 #Dejamos por ultimo lista de control, para que le de prioridad y sea el ultimo valor que almacene el DataFrame final.
 df.loc[df['documento'].isin(df_sqlite_control['documento']), 'Clasificación'] = 'Lista de control'
 
+registrar_proceso(conn, 500001, 'Finaliza del Proceso de cruce de datos', 'Finalizado')
+
 #Parametrizamos la fecha y hora en formato YYYYMMDD_HHMISS para customizar el nombre del archivo generado en base a una fecha.
 fecha_hora_actual = datetime.now().strftime('%Y%m%d_%H%M%S')
 
@@ -114,3 +130,7 @@ logging.info(f"Guardando archivo Excel:resultado_{fecha_hora_actual}")
 
 #Generamos nuevo archivo 
 df.to_excel(f'C:/Users/chest/OneDrive/Escritorio/Prueba técnica BA/evaluación_ing_datos/evaluación_externa/resultado_{fecha_hora_actual}.xlsx', index=False)
+
+
+
+registrar_proceso(conn, 500001, 'Finaliza el Proceso Carga Clientes', 'Finalizado')
